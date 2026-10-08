@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Probador AR de electrodomésticos</title>
+<meta name="description" content="Demo de realidad aumentada web: mira electrodomésticos y muebles a tamaño real en tu casa.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap">
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js"></script>
+<style>
+  /* Layout: escenario 3D sobre papel cuadriculado (plano de planta) + ficha técnica al lado; catálogo debajo. En celular, todo en una columna. */
+  :root {
+    --bg: #EDF0F2;
+    --surface: #FFFFFF;
+    --ink: #16202A;
+    --muted: #586470;
+    --line: #D3D9DE;
+    --tape: #F2B705;
+    --tape-ink: #2B2100;
+    --grid: rgba(22, 32, 42, 0.07);
+    --ok: #1D7A4E;
+    --alert: #B42318;
+    --qr-bg: #FFFFFF;
+    --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --r: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1317; --surface: #161D23; --ink: #E6EBEF; --muted: #95A3B0; --line: #2B353E;
+      --tape: #F5C33B; --tape-ink: #2B2100; --grid: rgba(230, 235, 239, 0.06);
+      --ok: #4CC38A; --alert: #F97066; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1317; --surface: #161D23; --ink: #E6EBEF; --muted: #95A3B0; --line: #2B353E;
+    --tape: #F5C33B; --tape-ink: #2B2100; --grid: rgba(230, 235, 239, 0.06);
+    --ok: #4CC38A; --alert: #F97066; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: var(--font-display); font-size: 1rem; line-height: 1.55;
+    padding-inline: 16px; padding-block: 20px 32px;
+  }
+  .contenedor { max-width: 1120px; margin-inline: auto; display: grid; gap: 20px; }
+
+  /* Encabezado */
+  .marca { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .cinta {
+    font-family: var(--font-mono); font-size: 0.75rem; font-weight: 500; letter-spacing: 0.06em;
+    background: var(--tape); color: var(--tape-ink); padding: 3px 8px; border-radius: 4px;
+  }
+  .marca span:last-child { font-size: 0.8rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  h1 {
+    font-variation-settings: "wdth" 118; font-weight: 750; font-size: clamp(1.7rem, 4.6vw, 2.7rem);
+    line-height: 1.08; margin: 10px 0 8px; text-wrap: balance; letter-spacing: -0.01em;
+  }
+  .bajada { margin: 0; color: var(--muted); max-width: 60ch; }
+
+  /* Escenario + ficha */
+  .principal { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 880px) { .principal { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; } }
+
+  .escenario {
+    position: relative; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden;
+    background-color: var(--surface);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  model-viewer {
+    display: block; width: 100%; height: min(68svh, 120vw); min-height: 340px; background-color: transparent;
+    --poster-color: transparent; --progress-bar-color: transparent;
+  }
+  @media (min-width: 880px) { model-viewer { height: 600px; } }
+
+  .barra { position: absolute; inset: 0 0 auto 0; height: 3px; background: transparent; }
+  .barra span { display: block; height: 100%; width: 0; background: var(--tape); transition: width 0.2s ease; }
+  .barra.lista { opacity: 0; transition: opacity 0.4s ease 0.2s; }
+
+  .medida {
+    position: absolute; left: 12px; top: 14px; display: grid; gap: 1px;
+    background: var(--tape); color: var(--tape-ink); border-radius: 4px; padding: 6px 10px 10px;
+    font-family: var(--font-mono); font-size: 0.8rem; font-variant-numeric: tabular-nums;
+    background-image: repeating-linear-gradient(90deg, var(--tape-ink) 0 1px, transparent 1px 6px);
+    background-size: 100% 5px; background-repeat: no-repeat; background-position: 0 100%;
+  }
+  .medida small { font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
+
+  .btn-ar {
+    position: absolute; right: 12px; bottom: 14px; display: inline-flex; align-items: center; gap: 8px;
+    border: 0; border-radius: 999px; padding: 12px 18px; cursor: pointer;
+    background: var(--ink); color: var(--surface);
+    font-family: var(--font-display); font-weight: 650; font-size: 0.95rem;
+  }
+  .btn-ar svg { width: 20px; height: 20px; flex: none; }
+  .btn-ar:focus-visible, .producto:focus-visible { outline: 3px solid var(--tape); outline-offset: 2px; }
+
+  .panel { display: grid; gap: 16px; min-width: 0; }
+  .ficha { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 12px; }
+  .etiqueta { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .ficha h2 { margin: 0; font-size: 1.35rem; line-height: 1.2; font-variation-settings: "wdth" 110; font-weight: 700; text-wrap: balance; }
+  .ficha p { margin: 0; color: var(--muted); }
+  .medidas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+  .medidas div { border-top: 2px solid var(--ink); padding-top: 6px; }
+  .medidas dt { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+  .medidas dd { margin: 0; font-family: var(--font-mono); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .medidas dd small { font-size: 0.75rem; color: var(--muted); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-size: 0.78rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; color: var(--ink); }
+
+  .aviso { border-radius: var(--r); padding: 14px 16px; border: 1px dashed var(--line); display: grid; gap: 8px; }
+  .aviso h3 { margin: 0; font-size: 1rem; }
+  .aviso p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+  .aviso.ok h3 { color: var(--ok); }
+  .qr { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .qr-caja { background: var(--qr-bg); padding: 8px; border-radius: 8px; width: 132px; height: 132px; flex: none; }
+  .qr-caja svg { width: 100%; height: 100%; display: block; }
+  .qr p { flex: 1 1 160px; min-width: 0; }
+
+  .pasos { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; color: var(--ink); font-size: 0.95rem; }
+  .pasos li::marker { font-family: var(--font-mono); color: var(--muted); }
+
+  .toast {
+    position: absolute; left: 12px; right: 12px; top: 72px; background: var(--surface); color: var(--alert);
+    border: 1px solid var(--alert); border-radius: 8px; padding: 10px 12px; font-size: 0.9rem;
+  }
+
+  /* Catálogo */
+  .catalogo h2 { font-size: 1.05rem; margin: 0 0 10px; font-variation-settings: "wdth" 110; }
+  .catalogo h2 small { font-weight: 400; color: var(--muted); font-size: 0.85rem; margin-left: 6px; }
+  .rejilla { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 720px) { .rejilla { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .producto {
+    text-align: left; cursor: pointer; font: inherit; color: inherit; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; min-width: 0;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .producto:hover { border-color: var(--muted); }
+  .producto[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .silueta { height: 58px; display: flex; align-items: flex-end; border-bottom: 1px solid var(--line); }
+  .silueta i { display: block; background: var(--tape); border-radius: 2px 2px 0 0; }
+  .producto[aria-pressed="false"] .silueta i { background: var(--line); }
+  .producto .etiqueta { font-size: 0.66rem; }
+  .producto strong { font-size: 0.98rem; line-height: 1.25; font-weight: 650; }
+  .producto .dims { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; display: grid; gap: 2px; }
+
+  footer { color: var(--muted); font-size: 0.82rem; display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 14px; }
+  footer p { margin: 0; max-width: 90ch; }
+  footer a { color: inherit; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="contenedor">
+  <header>
+    <div class="marca"><span class="cinta">AR</span><span>Demo · tienda de electrodomésticos</span></div>
+    <h1>Míralo en tu casa antes de comprarlo</h1>
+    <p class="bajada">Elige un producto, toca «Ver en mi espacio» y apunta la cámara al piso. Aparece a tamaño real, así sabes si cabe.</p>
+  </header>
+
+  <div class="principal">
+    <section class="escenario" aria-label="Visor 3D del producto">
+      <model-viewer id="visor"
+        alt="Refrigeradora de dos puertas en 3D"
+        ar ar-modes="webxr scene-viewer quick-look" ar-scale="fixed" ar-placement="floor"
+        loading="eager" camera-controls touch-action="pan-y" interaction-prompt="auto"
+        camera-orbit="30deg 75deg auto"
+        shadow-intensity="1" shadow-softness="0.8" exposure="1" environment-image="neutral"
+        auto-rotate auto-rotate-delay="4000" rotation-per-second="14deg">
+        <div class="barra" slot="progress-bar" id="barra"><span></span></div>
+        <button class="btn-ar" slot="ar-button" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>
+          Ver en mi espacio
+        </button>
+        <div class="medida" id="medida" aria-live="polite"><small>Ancho × alto × prof.</small><span id="medida-texto">— × — × — cm</span></div>
+        <div class="toast" id="toast" role="alert" hidden></div>
+      </model-viewer>
+    </section>
+
+    <aside class="panel">
+      <div class="ficha">
+        <p class="etiqueta" id="f-cat">Línea blanca</p>
+        <h2 id="f-nombre">Refrigeradora 2 puertas</h2>
+        <p id="f-nota">Congelador superior, acabado acero inoxidable.</p>
+        <dl class="medidas">
+          <div><dt>Ancho</dt><dd><span id="d-x">—</span> <small>cm</small></dd></div>
+          <div><dt>Alto</dt><dd><span id="d-y">—</span> <small>cm</small></dd></div>
+          <div><dt>Prof.</dt><dd><span id="d-z">—</span> <small>cm</small></dd></div>
+        </dl>
+        <div class="chips"><span class="chip" id="f-lugar">Se coloca en el piso</span><span class="chip">Escala fija 1:1</span></div>
+      </div>
+
+      <div class="aviso" id="aviso">
+        <h3>Comprobando tu dispositivo…</h3>
+      </div>
+
+      <ol class="pasos">
+        <li>Toca «Ver en mi espacio» y da permiso a la cámara.</li>
+        <li>Apunta al piso (o a la pared, en el televisor) y mueve el celular despacio hasta que aparezca.</li>
+        <li>Arrástralo con un dedo para ubicarlo y gíralo con dos. No cambia de tamaño.</li>
+      </ol>
+    </aside>
+  </div>
+
+  <section class="catalogo" aria-labelledby="t-cat">
+    <h2 id="t-cat">Productos <small>de ejemplo para la prueba</small></h2>
+    <div class="rejilla" id="rejilla"></div>
+  </section>
+
+  <footer>
+    <p>Hecho con &lt;model-viewer&gt; 4.3.1. En Android abre WebXR o Scene Viewer; en iPhone abre AR Quick Look (el archivo USDZ se genera solo a partir del GLB).</p>
+    <p>Sofá: «Glam Velvet Sofa» © 2021 Wayfair, LLC, licencia <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, tomado de <a href="https://github.com/KhronosGroup/glTF-Sample-Assets" target="_blank" rel="noopener">Khronos glTF Sample Assets</a>. Refrigeradora, televisor y lámpara: modelos simples creados para esta demo con medidas reales.</p>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+  const PRODUCTOS = [
+    { id: "refrigeradora", nombre: "Refrigeradora 2 puertas", cat: "Línea blanca", nota: "Congelador superior, acabado acero inoxidable.",
+      src: "modelos/refrigeradora.glb", lugar: "floor", orbita: "30deg 75deg auto", medidas: [70, 180, 74], alt: "Refrigeradora de dos puertas en 3D" },
+    { id: "televisor", nombre: "Televisor 55\"", cat: "Audio y video", nota: "Pantalla plana para montar en la pared.",
+      src: "modelos/televisor-55.glb", lugar: "wall", orbita: "0deg 85deg auto", medidas: [123, 71, 3], alt: "Televisor de 55 pulgadas en 3D" },
+    { id: "lampara", nombre: "Lámpara de pie", cat: "Iluminación", nota: "Base metálica y pantalla de tela.",
+      src: "modelos/lampara-de-pie.glb", lugar: "floor", orbita: "25deg 78deg auto", medidas: [44, 165, 44], alt: "Lámpara de pie en 3D" },
+    { id: "sofa", nombre: "Sofá cama de terciopelo", cat: "Muebles", nota: "Modelo real de catálogo con textura de tela.",
+      src: "modelos/sofa.glb", lugar: "floor", orbita: "35deg 72deg auto", medidas: [219, 79, 102], alt: "Sofá cama de terciopelo en 3D" }
+  ];
+
+  const visor = document.getElementById("visor");
+  const rejilla = document.getElementById("rejilla");
+  const aviso = document.getElementById("aviso");
+  const toast = document.getElementById("toast");
+  const barra = document.getElementById("barra");
+  const $ = (id) => document.getElementById(id);
+
+  let enMarco = false;
+  try { enMarco = window.self !== window.top; } catch (e) { enMarco = true; }
+  const ua = navigator.userAgent;
+  const esMovil = /Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) visor.removeAttribute("auto-rotate");
+
+  // Catálogo con siluetas a la misma escala (1 m = 26 px) para comparar tamaños
+  const ESCALA = 26;
+  PRODUCTOS.forEach((p) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "producto";
+    b.id = "btn-" + p.id;
+    b.setAttribute("aria-pressed", "false");
+    const [w, h, d] = p.medidas;
+    b.innerHTML =
+      '<span class="silueta" aria-hidden="true"><i style="width:' + Math.max(3, w / 100 * ESCALA) + 'px;height:' + Math.max(3, h / 100 * ESCALA) + 'px"></i></span>' +
+      '<span class="etiqueta">' + p.cat + '</span>' +
+      '<strong>' + p.nombre + '</strong>' +
+      '<span class="dims"><span>' + w + ' × ' + h + ' × ' + d + ' cm</span><span>' + (p.lugar === "wall" ? "En pared" : "En piso") + '</span></span>';
+    b.addEventListener("click", () => {
+      seleccionar(p.id);
+      const r = visor.getBoundingClientRect();
+      if (r.bottom < 80 || r.top > window.innerHeight - 80) {
+        const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        visor.scrollIntoView({ behavior: suave ? "smooth" : "auto", block: "start" });
+      }
+    });
+    rejilla.appendChild(b);
+  });
+
+  // Si la página trae los modelos incrustados (vista previa), se convierten en URLs blob; si no, se usan los archivos.
+  const blobs = {};
+  function resolverSrc(src) {
+    const b64 = window.MODELOS_EMBEBIDOS && window.MODELOS_EMBEBIDOS[src];
+    if (!b64) return src;
+    if (!blobs[src]) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      blobs[src] = URL.createObjectURL(new Blob([bytes], { type: "model/gltf-binary" }));
+    }
+    return blobs[src];
+  }
+
+  function seleccionar(id) {
+    const p = PRODUCTOS.find((x) => x.id === id) || PRODUCTOS[0];
+    document.querySelectorAll(".producto").forEach((b) => b.setAttribute("aria-pressed", String(b.id === "btn-" + p.id)));
+    $("f-cat").textContent = p.cat;
+    $("f-nombre").textContent = p.nombre;
+    $("f-nota").textContent = p.nota;
+    $("f-lugar").textContent = p.lugar === "wall" ? "Se coloca en la pared" : "Se coloca en el piso";
+    ["d-x", "d-y", "d-z"].forEach((k) => ($(k).textContent = "—"));
+    $("medida-texto").textContent = "— × — × — cm";
+    toast.hidden = true;
+    barra.classList.remove("lista");
+    visor.setAttribute("ar-placement", p.lugar);
+    visor.setAttribute("camera-orbit", p.orbita);
+    visor.setAttribute("alt", p.alt);
+    visor.setAttribute("src", resolverSrc(p.src));
+    try { history.replaceState(null, "", "#" + p.id); } catch (e) {}
+    if (aviso.dataset.modo === "qr") pintarAviso();
+  }
+
+  visor.addEventListener("progress", (e) => {
+    const t = e.detail.totalProgress;
+    barra.firstElementChild.style.width = (t * 100).toFixed(0) + "%";
+    if (t >= 1) barra.classList.add("lista");
+  });
+
+  visor.addEventListener("load", () => {
+    const d = visor.getDimensions();
+    const cm = (v) => Math.round(v * 100);
+    $("d-x").textContent = cm(d.x);
+    $("d-y").textContent = cm(d.y);
+    $("d-z").textContent = cm(d.z);
+    $("medida-texto").textContent = cm(d.x) + " × " + cm(d.y) + " × " + cm(d.z) + " cm";
+    pintarAviso();
+  });
+
+  visor.addEventListener("error", () => {
+    toast.textContent = "No se pudo cargar el modelo 3D. Revisa tu conexión y vuelve a elegir el producto.";
+    toast.hidden = false;
+  });
+
+  visor.addEventListener("ar-status", (e) => {
+    if (e.detail.status === "failed") {
+      toast.textContent = "No se pudo abrir la cámara AR. Revisa que el navegador tenga permiso de cámara y que la página se abra con HTTPS.";
+      toast.hidden = false;
+    } else {
+      toast.hidden = true;
+    }
+  });
+
+  function pintarAviso() {
+    const puedeAR = !!visor.canActivateAR;
+    aviso.className = "aviso";
+    aviso.dataset.modo = "";
+    if (enMarco) {
+      aviso.innerHTML = "<h3>Vista previa</h3><p>Aquí puedes girar los modelos y ver sus medidas. La cámara AR se abre cuando la página está publicada en su propio dominio con HTTPS, por ejemplo en GitHub Pages. Abre ese enlace en tu celular para la prueba real.</p>";
+    } else if (puedeAR) {
+      aviso.classList.add("ok");
+      aviso.innerHTML = "<h3>AR disponible en este dispositivo</h3><p>Usa el botón «Ver en mi espacio» del visor.</p>";
+    } else if (esMovil) {
+      aviso.innerHTML = "<h3>Este navegador no abre AR</h3><p>En Android usa Chrome y verifica que tengas instalado «Servicios de Google Play para RA». En iPhone abre la página en Safari.</p>";
+    } else if (typeof qrcode === "function") {
+      aviso.dataset.modo = "qr";
+      const q = qrcode(0, "M");
+      q.addData(location.href);
+      q.make();
+      aviso.innerHTML = '<h3>Pruébalo en tu celular</h3><div class="qr"><div class="qr-caja">' +
+        q.createSvgTag({ cellSize: 4, margin: 0, scalable: true }) +
+        '</div><p>Escanea el código con la cámara del celular. Se abre esta misma página con el producto elegido.</p></div>';
+    } else {
+      aviso.innerHTML = "<h3>Pruébalo en tu celular</h3><p>Abre esta misma dirección en tu celular para usar la cámara.</p>";
+    }
+  }
+
+  const inicial = location.hash.replace("#", "");
+  seleccionar(PRODUCTOS.some((p) => p.id === inicial) ? inicial : "refrigeradora");
+</script>
+</body>
+</html>
