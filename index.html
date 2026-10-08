@@ -4,27 +4,32 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Probador AR de electrodomésticos</title>
-<meta name="description" content="Demo de realidad aumentada web: mira electrodomésticos y muebles a tamaño real en tu casa, con sus medidas.">
+<meta name="description" content="Demo de realidad aumentada web: mira electrodomésticos y muebles a tamaño real en tu casa y comprueba si caben en tu espacio.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap">
 <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js"></script>
 <style>
-  /* Layout: escenario 3D sobre papel cuadriculado (plano de planta) + ficha técnica al lado; catálogo debajo. En celular, todo en una columna. */
+  /* Layout: escenario 3D sobre papel cuadriculado (plano de planta) + ficha técnica y verificador de espacio al lado; catálogo debajo. En celular, todo en una columna. */
   :root {
     --bg: #EDF0F2;
     --surface: #FFFFFF;
     --ink: #16202A;
     --muted: #586470;
     --line: #D3D9DE;
+    --muro: #C9D0D6;
     --tape: #F2B705;
     --tape-ink: #2B2100;
     --guia: #0E8FBF;
     --grid: rgba(22, 32, 42, 0.07);
     --velo: rgba(14, 19, 23, 0.82);
     --velo-ink: #F4F6F8;
-    --ok: #1D7A4E;
+    --ok: #15803D;
+    --ok-bg: #E7F6EC;
+    --justo: #B45309;
+    --justo-bg: #FDF1DC;
     --alert: #B42318;
+    --alert-bg: #FDE8E6;
     --qr-bg: #FFFFFF;
     --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -32,17 +37,19 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0E1317; --surface: #161D23; --ink: #E6EBEF; --muted: #95A3B0; --line: #2B353E;
+      --bg: #0E1317; --surface: #161D23; --ink: #E6EBEF; --muted: #95A3B0; --line: #2B353E; --muro: #34404A;
       --tape: #F5C33B; --tape-ink: #2B2100; --guia: #4CC7F0; --grid: rgba(230, 235, 239, 0.06);
       --velo: rgba(0, 0, 0, 0.78); --velo-ink: #F4F6F8;
-      --ok: #4CC38A; --alert: #F97066; color-scheme: dark;
+      --ok: #4CC38A; --ok-bg: #12301F; --justo: #F5B455; --justo-bg: #3A2A10; --alert: #F97066; --alert-bg: #3D1714;
+      color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0E1317; --surface: #161D23; --ink: #E6EBEF; --muted: #95A3B0; --line: #2B353E;
+    --bg: #0E1317; --surface: #161D23; --ink: #E6EBEF; --muted: #95A3B0; --line: #2B353E; --muro: #34404A;
     --tape: #F5C33B; --tape-ink: #2B2100; --guia: #4CC7F0; --grid: rgba(230, 235, 239, 0.06);
     --velo: rgba(0, 0, 0, 0.78); --velo-ink: #F4F6F8;
-    --ok: #4CC38A; --alert: #F97066; color-scheme: dark;
+    --ok: #4CC38A; --ok-bg: #12301F; --justo: #F5B455; --justo-bg: #3A2A10; --alert: #F97066; --alert-bg: #3D1714;
+    color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
@@ -65,11 +72,14 @@
     font-variation-settings: "wdth" 118; font-weight: 750; font-size: clamp(1.7rem, 4.6vw, 2.7rem);
     line-height: 1.08; margin: 10px 0 8px; text-wrap: balance; letter-spacing: -0.01em;
   }
-  .bajada { margin: 0; color: var(--muted); max-width: 60ch; }
+  .bajada { margin: 0; color: var(--muted); max-width: 62ch; }
 
-  /* Escenario + ficha */
+  /* Escenario + panel */
   .principal { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
-  @media (min-width: 880px) { .principal { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start; } }
+  @media (min-width: 880px) {
+    .principal { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); align-items: start; }
+    .escenario { position: sticky; top: calc(16px + env(safe-area-inset-top, 0px)); }
+  }
 
   .escenario {
     position: relative; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden;
@@ -81,7 +91,7 @@
     display: block; width: 100%; height: min(68svh, 120vw); min-height: 340px; background-color: transparent;
     --poster-color: transparent; --progress-bar-color: transparent;
   }
-  @media (min-width: 880px) { model-viewer { height: 600px; } }
+  @media (min-width: 880px) { model-viewer { height: min(600px, calc(100svh - 40px)); } }
 
   .barra { position: absolute; inset: 0 0 auto 0; height: 3px; background: transparent; }
   .barra span { display: block; height: 100%; width: 0; background: var(--tape); transition: width 0.2s ease; }
@@ -96,25 +106,34 @@
   }
   .medida small { font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.75; }
 
+  /* Sello con el resultado de «¿Cabe?» (también visible dentro de la cámara en Android) */
+  .sello {
+    position: absolute; left: 12px; top: 72px; max-width: calc(100% - 24px);
+    display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 6px 12px 6px 8px;
+    font-weight: 650; font-size: 0.88rem; line-height: 1.3; border: 1.5px solid currentColor; background: var(--surface);
+  }
+  .sello::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex: none; }
+  .sello[data-estado="ok"] { color: var(--ok); background: var(--ok-bg); }
+  .sello[data-estado="justo"] { color: var(--justo); background: var(--justo-bg); }
+  .sello[data-estado="no"] { color: var(--alert); background: var(--alert-bg); }
+
   .btn-ar, .btn-regla {
     position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: inline-flex; align-items: center; gap: 8px;
     border-radius: 999px; cursor: pointer; font-family: var(--font-display); font-weight: 650; font-size: 0.95rem;
   }
   .btn-ar { right: 12px; border: 0; padding: 12px 18px; background: var(--ink); color: var(--surface); }
-  .btn-regla {
-    left: 12px; padding: 10px 14px; border: 1.5px solid var(--ink); background: var(--surface); color: var(--ink);
-  }
+  .btn-regla { left: 12px; padding: 10px 14px; border: 1.5px solid var(--ink); background: var(--surface); color: var(--ink); }
   .btn-regla[aria-pressed="true"] { background: var(--tape); border-color: var(--tape); color: var(--tape-ink); }
   .btn-ar svg, .btn-regla svg { width: 20px; height: 20px; flex: none; }
   @media (max-width: 440px) {
     .btn-regla { padding: 12px; }
     .btn-regla .txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   }
-  .btn-ar:focus-visible, .btn-regla:focus-visible, .producto:focus-visible, .btn-prueba:focus-visible { outline: 3px solid var(--tape); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--tape); outline-offset: 2px; }
 
   /* Mensajes dentro de la cámara AR (Android / WebXR). Los muestra el atributo ar-status que pone model-viewer. */
   .guia-ar, .guia-perdida {
-    display: none; position: absolute; left: 12px; right: 12px; top: calc(84px + env(safe-area-inset-top, 0px));
+    display: none; position: absolute; left: 12px; right: 12px; top: calc(120px + env(safe-area-inset-top, 0px));
     background: var(--velo); color: var(--velo-ink); border-radius: 12px; padding: 12px 14px;
     font-size: 0.95rem; line-height: 1.4; text-align: center; text-wrap: balance;
   }
@@ -128,7 +147,7 @@
   model-viewer[ar-tracking="not-tracking"] .guia-ar { display: none; }
 
   .panel { display: grid; gap: 16px; min-width: 0; }
-  .ficha { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 12px; }
+  .ficha, .cabe { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 12px; min-width: 0; }
   .etiqueta { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 0; }
   .ficha h2 { margin: 0; font-size: 1.35rem; line-height: 1.2; font-variation-settings: "wdth" 110; font-weight: 700; text-wrap: balance; }
   .ficha p { margin: 0; color: var(--muted); }
@@ -140,6 +159,68 @@
   .medidas dd small { font-size: 0.75rem; color: var(--muted); }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { font-size: 0.78rem; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; color: var(--ink); }
+
+  /* ¿Cabe en tu espacio? */
+  .cabe h3 { margin: 0; font-size: 1.1rem; font-variation-settings: "wdth" 110; }
+  .cabe .ayuda { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .campos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .campo { display: grid; gap: 4px; min-width: 0; font-size: 0.8rem; color: var(--muted); }
+  .entrada { display: flex; align-items: center; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); overflow: hidden; }
+  .entrada:focus-within { border-color: var(--ink); }
+  .entrada input {
+    flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); padding: 9px 10px;
+    font-family: var(--font-mono); font-size: 1.05rem; font-variant-numeric: tabular-nums;
+  }
+  .entrada input:focus-visible { outline: none; }
+  .entrada span { padding-right: 10px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
+  .campo .err { color: var(--alert); font-size: 0.78rem; }
+  .campo.con-error .entrada { border-color: var(--alert); }
+
+  .veredicto { border-radius: 8px; padding: 12px 14px; display: grid; gap: 2px; border: 1.5px solid var(--line); }
+  .veredicto strong { font-size: 1.15rem; font-variation-settings: "wdth" 112; }
+  .veredicto span { font-size: 0.9rem; }
+  .veredicto[data-estado="vacio"] { border-style: dashed; color: var(--muted); }
+  .veredicto[data-estado="ok"] { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+  .veredicto[data-estado="justo"] { border-color: var(--justo); background: var(--justo-bg); color: var(--justo); }
+  .veredicto[data-estado="no"] { border-color: var(--alert); background: var(--alert-bg); color: var(--alert); }
+
+  .filas { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+  .filas li { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 4px 10px; padding: 8px 0; border-top: 1px solid var(--line); align-items: baseline; }
+  .filas b { font-size: 0.85rem; font-weight: 650; }
+  .filas .det { font-size: 0.85rem; color: var(--muted); }
+  .filas .res { grid-column: 2; font-size: 0.88rem; font-weight: 650; display: inline-flex; gap: 6px; align-items: center; }
+  .filas .res::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
+  .filas [data-estado="ok"] .res { color: var(--ok); }
+  .filas [data-estado="justo"] .res { color: var(--justo); }
+  .filas [data-estado="no"] .res { color: var(--alert); }
+  .filas [data-estado="vacio"] .res { color: var(--muted); font-weight: 400; }
+
+  .planos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+  .planos.uno { grid-template-columns: minmax(0, 1fr); }
+  .planos figure { margin: 0; display: grid; gap: 4px; min-width: 0; }
+  .planos svg { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 8px; }
+  .planos figcaption { font-size: 0.75rem; color: var(--muted); letter-spacing: 0.04em; }
+  .plano .muro { fill: var(--muro); }
+  .plano .piso { stroke: var(--muted); stroke-width: 1.5; }
+  .plano .holgura { fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+  .plano .prod { fill: var(--tape); fill-opacity: 0.55; stroke: var(--ink); stroke-width: 1.2; }
+  .plano .prod.ok { fill: var(--ok); fill-opacity: 0.28; stroke: var(--ok); }
+  .plano .prod.justo { fill: var(--justo); fill-opacity: 0.3; stroke: var(--justo); }
+  .plano .prod.no { fill: var(--alert); fill-opacity: 0.32; stroke: var(--alert); }
+  .plano .zona { fill: none; stroke-width: 1.5; stroke-dasharray: 6 4; }
+  .plano .zona.ok { stroke: var(--ok); } .plano .zona.justo { stroke: var(--justo); } .plano .zona.no { stroke: var(--alert); } .plano .zona.vacio { stroke: var(--muted); }
+  .plano .cota { stroke: var(--muted); stroke-width: 1; }
+  .plano text { font-family: var(--font-mono); font-size: 11px; fill: var(--muted); }
+  .plano text.ok { fill: var(--ok); } .plano text.justo { fill: var(--justo); } .plano text.no { fill: var(--alert); }
+  .plano text.fuerte { fill: var(--ink); font-weight: 500; }
+
+  .cabe .nota { margin: 0; font-size: 0.82rem; color: var(--muted); }
+  .cabe .acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn-sec {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font: inherit; font-weight: 600; font-size: 0.88rem;
+    color: var(--ink); background: transparent; border: 1.5px solid var(--line); border-radius: 999px; padding: 7px 14px;
+  }
+  .btn-sec:hover { border-color: var(--muted); }
 
   .aviso { border-radius: var(--r); padding: 14px 16px; border: 1px dashed var(--line); display: grid; gap: 8px; }
   .aviso h3 { margin: 0; font-size: 1rem; }
@@ -166,7 +247,7 @@
   .btn-prueba svg { width: 18px; height: 18px; }
 
   .toast {
-    position: absolute; left: 12px; right: 12px; top: 72px; background: var(--surface); color: var(--alert);
+    position: absolute; left: 12px; right: 12px; top: 120px; background: var(--surface); color: var(--alert);
     border: 1px solid var(--alert); border-radius: 8px; padding: 10px 12px; font-size: 0.9rem;
   }
 
@@ -178,7 +259,7 @@
   .producto {
     text-align: left; cursor: pointer; font: inherit; color: inherit; background: var(--surface);
     border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; min-width: 0;
-    transition: border-color 0.15s ease;
+    transition: border-color 0.15s ease; align-content: start;
   }
   .producto:hover { border-color: var(--muted); }
   .producto[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
@@ -188,6 +269,10 @@
   .producto .etiqueta { font-size: 0.66rem; }
   .producto strong { font-size: 0.98rem; line-height: 1.25; font-weight: 650; }
   .producto .dims { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; display: grid; gap: 2px; }
+  .encaja { justify-self: start; font-size: 0.74rem; font-weight: 650; border-radius: 999px; padding: 1px 9px; border: 1px solid currentColor; }
+  .encaja[data-estado="ok"] { color: var(--ok); background: var(--ok-bg); }
+  .encaja[data-estado="justo"] { color: var(--justo); background: var(--justo-bg); }
+  .encaja[data-estado="no"] { color: var(--alert); background: var(--alert-bg); }
 
   footer { color: var(--muted); font-size: 0.82rem; display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 14px; }
   footer p { margin: 0; max-width: 90ch; }
@@ -202,7 +287,7 @@
   <header>
     <div class="marca"><span class="cinta">AR</span><span>Demo · tienda de electrodomésticos</span></div>
     <h1>Míralo en tu casa antes de comprarlo</h1>
-    <p class="bajada">Elige un producto, toca «Ver en mi espacio» y apunta la cámara al piso. Aparece a tamaño real, y con «Medidas» ves su ancho, alto y fondo encima del producto.</p>
+    <p class="bajada">Mide tu espacio, escribe las medidas y te decimos si el producto cabe. Luego míralo en la cámara a tamaño real, dentro de un marco con el tamaño de tu hueco.</p>
   </header>
 
   <div class="principal">
@@ -224,7 +309,8 @@
           <span class="txt">Medidas</span>
         </button>
         <div class="medida" id="medida" aria-live="polite"><small>Ancho × alto × fondo</small><span id="medida-texto">— × — × — cm</span></div>
-        <div class="guia-ar" id="guia-ar"><span class="largo">Apunta al piso y mueve el celular despacio. Mientras flote no está apoyado: espera a que baje y aparezca su sombra.</span><span class="corto"></span></div>
+        <div class="sello" id="sello" data-estado="vacio" role="status" hidden></div>
+        <div class="guia-ar" id="guia-ar"><span class="largo"></span><span class="corto"></span></div>
         <div class="guia-perdida">Se perdió la referencia. Mueve el celular despacio apuntando a una zona con más luz o textura.</div>
         <div class="toast" id="toast" role="alert" hidden></div>
       </model-viewer>
@@ -244,14 +330,48 @@
         <div class="chips"><span class="chip" id="f-lugar">Se coloca en el piso</span><span class="chip">Escala fija 1:1</span></div>
       </div>
 
+      <section class="cabe" id="cabe" aria-labelledby="t-cabe">
+        <h3 id="t-cabe">¿Cabe en tu espacio?</h3>
+        <p class="ayuda" id="cabe-ayuda"></p>
+        <div class="campos">
+          <label class="campo" id="c-ancho" for="e-ancho"><span id="l-ancho">Ancho del hueco</span>
+            <span class="entrada"><input id="e-ancho" name="ancho" type="number" inputmode="decimal" min="10" max="600" step="0.5" autocomplete="off"><span>cm</span></span>
+            <span class="err" id="err-ancho" hidden></span></label>
+          <label class="campo" id="c-alto" for="e-alto"><span id="l-alto">Alto libre</span>
+            <span class="entrada"><input id="e-alto" name="alto" type="number" inputmode="decimal" min="10" max="600" step="0.5" autocomplete="off"><span>cm</span></span>
+            <span class="err" id="err-alto" hidden></span></label>
+          <label class="campo" id="c-fondo" for="e-fondo"><span id="l-fondo">Fondo del hueco</span>
+            <span class="entrada"><input id="e-fondo" name="fondo" type="number" inputmode="decimal" min="10" max="600" step="0.5" autocomplete="off"><span>cm</span></span>
+            <span class="err" id="err-fondo" hidden></span></label>
+          <label class="campo" id="c-puerta" for="e-puerta"><span id="l-puerta">Puerta más angosta</span>
+            <span class="entrada"><input id="e-puerta" name="puerta" type="number" inputmode="decimal" min="10" max="600" step="0.5" autocomplete="off"><span>cm</span></span>
+            <span class="err" id="err-puerta" hidden></span></label>
+        </div>
+
+        <div class="veredicto" id="veredicto" data-estado="vacio" aria-live="polite">
+          <strong id="v-titulo">Escribe al menos el ancho</strong>
+          <span id="v-resumen">Con tus medidas te decimos si cabe y cuántos centímetros faltan o sobran.</span>
+        </div>
+        <ul class="filas" id="filas"></ul>
+        <div class="planos" id="planos">
+          <figure><svg class="plano" id="plano-frente" viewBox="0 0 300 220" role="img" aria-label="Vista de frente del hueco y el producto a escala"></svg><figcaption>De frente, a escala</figcaption></figure>
+          <figure id="fig-arriba"><svg class="plano" id="plano-arriba" viewBox="0 0 300 220" role="img" aria-label="Vista desde arriba del hueco y el producto a escala"></svg><figcaption>Desde arriba, a escala</figcaption></figure>
+        </div>
+        <p class="nota" id="nota-holgura"></p>
+        <p class="nota" id="nota-marco"></p>
+        <div class="acciones">
+          <button class="btn-sec" id="btn-borrar" type="button">Borrar medidas</button>
+        </div>
+      </section>
+
       <div class="aviso" id="aviso">
         <h3>Comprobando tu dispositivo…</h3>
       </div>
 
       <ol class="pasos">
-        <li>Activa «Medidas» si quieres ver las cotas sobre el producto. En Android también puedes activarlas dentro de la cámara.</li>
+        <li>Mide tu espacio con un flexómetro y escribe las medidas en «¿Cabe en tu espacio?».</li>
         <li>Toca «Ver en mi espacio», da permiso a la cámara y apunta al piso (o a la pared, en el televisor).</li>
-        <li>Espera a que el producto se apoye. Arrástralo con un dedo y gíralo con dos. No cambia de tamaño.</li>
+        <li>Alinea el marco de color con las paredes de tu hueco. Si el marco no coincide con el hueco real, vuelve a medir.</li>
       </ol>
 
       <section class="escala" aria-labelledby="t-escala">
@@ -275,66 +395,143 @@
   </section>
 
   <footer>
-    <p>Hecho con &lt;model-viewer&gt; 4.3.1. En Android abre WebXR (con botón de medidas dentro de la cámara) o Scene Viewer. En iPhone abre AR Quick Look con archivos USDZ preparados en metros; el televisor se ancla a la pared.</p>
+    <p>Hecho con &lt;model-viewer&gt; 4.3.1. El resultado de «¿Cabe?» se calcula con las medidas que escribe el cliente, la ficha del producto y la holgura que define la tienda; el marco de color se genera en el navegador y entra en la cámara AR (Android con WebXR y iPhone con Quick Look).</p>
     <p>Sofá: «Glam Velvet Sofa» © 2021 Wayfair, LLC, licencia <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, tomado de <a href="https://github.com/KhronosGroup/glTF-Sample-Assets" target="_blank" rel="noopener">Khronos glTF Sample Assets</a>. Refrigeradora, televisor, lámpara y regla: modelos simples creados para esta demo con medidas reales.</p>
   </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
-  // Cada producto tiene su modelo normal y su variante con medidas, en GLB (web y Android) y USDZ (iPhone).
+  // ---------------------------------------------------------------- catálogo
+  // medidas: ancho, alto, fondo en cm (ficha del producto).
+  // limites: caja del modelo 3D en metros [x0, x1, y0, y1, z0, z1]; sirve para ubicar el marco del hueco.
+  // holgura: centímetros extra que la tienda exige en total por eje (ventilación, margen); paso: lo mínimo que necesita una puerta.
   const PRODUCTOS = [
     { id: "refrigeradora", nombre: "Refrigeradora 2 puertas", cat: "Línea blanca", nota: "Congelador superior, acabado acero inoxidable.",
-      archivo: "refrigeradora", lugar: "floor", orbita: "30deg 75deg auto", medidas: [70, 180, 74], alt: "Refrigeradora de dos puertas en 3D" },
+      archivo: "refrigeradora", lugar: "floor", orbita: "30deg 75deg auto", medidas: [70, 180, 74], alt: "Refrigeradora de dos puertas en 3D",
+      limites: [-0.35, 0.35, 0, 1.8, -0.36, 0.3775],
+      holgura: { ancho: 4, alto: 3, fondo: 5 }, paso: 70,
+      textoHolgura: "Para ventilar necesita 2 cm libres a cada lado, 3 cm arriba y 5 cm atrás. Deja además unos 70 cm libres al frente para abrir las puertas por completo." },
     { id: "televisor", nombre: "Televisor 55\"", cat: "Audio y video", nota: "Pantalla plana para montar en la pared.",
       archivo: "televisor-55", lugar: "wall", orbita: "18deg 80deg auto", medidas: [123, 71, 3], alt: "Televisor de 55 pulgadas en 3D con guía de instalación",
+      limites: [-0.614, 0.614, 0.75, 1.459, 0, 0.032],
+      holgura: { ancho: 10, alto: 10 },
+      textoHolgura: "Se pide un margen de 5 cm alrededor del televisor para el soporte y los cables.",
       instalacion: "El aro celeste marca el piso. Sube o baja el televisor en la pared hasta que el aro quede apoyado en el piso: así el centro de la pantalla queda a 1,10 m, una altura cómoda para verlo sentado." },
     { id: "lampara", nombre: "Lámpara de pie", cat: "Iluminación", nota: "Base metálica y pantalla de tela.",
-      archivo: "lampara-de-pie", lugar: "floor", orbita: "25deg 78deg auto", medidas: [44, 165, 44], alt: "Lámpara de pie en 3D" },
+      archivo: "lampara-de-pie", lugar: "floor", orbita: "25deg 78deg auto", medidas: [44, 165, 44], alt: "Lámpara de pie en 3D",
+      limites: [-0.22, 0.22, 0, 1.65, -0.22, 0.22],
+      holgura: { ancho: 0, alto: 5, fondo: 0 }, paso: 44,
+      textoHolgura: "Deja al menos 5 cm entre la pantalla y el techo o el mueble de arriba." },
     { id: "sofa", nombre: "Sofá cama de terciopelo", cat: "Muebles", nota: "Modelo real de catálogo con textura de tela.",
-      archivo: "sofa", lugar: "floor", orbita: "35deg 72deg auto", medidas: [219, 79, 102], alt: "Sofá cama de terciopelo en 3D" }
+      archivo: "sofa", lugar: "floor", orbita: "35deg 72deg auto", medidas: [219, 79, 102], alt: "Sofá cama de terciopelo en 3D",
+      limites: [-1.114, 1.0745, 0, 0.7876, -0.6277, 0.3951],
+      holgura: { ancho: 0, alto: 0, fondo: 0 }, paso: 79,
+      textoHolgura: "Para la puerta se considera que el sofá pasa de lado (79 cm). Deja unos 60 cm libres al frente para circular." }
   ];
   const REGLA = { id: "regla", nombre: "Regla de prueba de 1 m", cat: "Prueba de escala", nota: "Franjas de 10 cm. Pon un flexómetro real a su lado para comprobar que el AR está a escala.",
     archivo: "regla-1m", sinMedidas: true, lugar: "floor", orbita: "20deg 72deg auto", medidas: [100, 100, 4], alt: "Regla de prueba de un metro en 3D" };
   const TODOS = PRODUCTOS.concat([REGLA]);
 
-  const visor = document.getElementById("visor");
-  const rejilla = document.getElementById("rejilla");
-  const aviso = document.getElementById("aviso");
-  const toast = document.getElementById("toast");
-  const barra = document.getElementById("barra");
-  const btnRegla = document.getElementById("btn-regla");
-  const btnPrueba = document.getElementById("btn-prueba");
-  const guiaAr = document.getElementById("guia-ar");
   const $ = (id) => document.getElementById(id);
+  const visor = $("visor"), rejilla = $("rejilla"), aviso = $("aviso"), toast = $("toast"), barra = $("barra");
+  const btnRegla = $("btn-regla"), btnPrueba = $("btn-prueba"), guiaAr = $("guia-ar"), sello = $("sello");
 
   let actual = PRODUCTOS[0];
   let conMedidas = false;
+  let resultado = null;          // evaluación del producto actual
+  let marcoUrl = null;           // GLB del hueco (blob)
+  let generacion = 0;            // evita carreras al regenerar el marco
 
   let enMarco = false;
   try { enMarco = window.self !== window.top; } catch (e) { enMarco = true; }
   const ua = navigator.userAgent;
   const esMovil = /Android|iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) visor.removeAttribute("auto-rotate");
 
-  // Catálogo con siluetas a la misma escala (1 m = 26 px) para comparar tamaños
+  // ---------------------------------------------------------------- medidas del cliente (se recuerdan en este navegador)
+  const CLAVE = "probador-ar-espacio";
+  let espacio = { piso: {}, pared: {} };
+  try { const g = JSON.parse(localStorage.getItem(CLAVE) || "null"); if (g && g.piso && g.pared) espacio = g; } catch (e) {}
+  function guardarEspacio() { try { localStorage.setItem(CLAVE, JSON.stringify(espacio)); } catch (e) {} }
+  const grupo = (p) => (p.lugar === "wall" ? "pared" : "piso");
+
+  const fmt = (v) => { const r = Math.round(v * 10) / 10; return Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ","); };
+
+  // ---------------------------------------------------------------- evaluación
+  // estado: "ok" (cabe con holgura), "justo" (entra sin la holgura o sobresale de fondo), "no" (no entra), "vacio" (sin medir)
+  function evaluar(p, e) {
+    const [W, H, D] = p.medidas;
+    const h = p.holgura;
+    const filas = [];
+    const eje = (clave, nombre, ocupa, holg, tiene, palabra) => {
+      if (tiene == null) return filas.push({ clave, nombre, estado: "vacio", det: "Producto " + ocupa + " cm" + (holg ? " + " + holg + " cm de holgura" : ""), res: "Falta medir" });
+      const necesita = ocupa + holg;
+      const minimo = Math.max(necesita, ocupa + 1);
+      const det = (p.lugar === "wall" ? "Pared " : "Hueco ") + fmt(tiene) + " cm · producto " + ocupa + " cm" + (holg ? " + " + holg + " cm de holgura" : "");
+      if (tiene >= minimo) filas.push({ clave, nombre, estado: "ok", det, res: "Cabe · sobran " + fmt(tiene - necesita) + " cm" });
+      else if (tiene >= ocupa) filas.push({ clave, nombre, estado: "justo", det, res: holg ? "Entra sin la holgura de " + holg + " cm" : "Entra sin margen", corto: "sin holgura de " + palabra });
+      else filas.push({ clave, nombre, estado: "no", det, res: "No cabe · faltan " + fmt(ocupa - tiene) + " cm", corto: "faltan " + fmt(ocupa - tiene) + " cm de " + palabra });
+    };
+    eje("ancho", "Ancho", W, h.ancho, e.ancho, "ancho");
+    eje("alto", "Alto", H, h.alto, e.alto, "alto");
+    if (p.lugar !== "wall") {
+      // El fondo casi nunca impide la compra: si no alcanza, el producto sobresale del hueco.
+      if (e.fondo == null) filas.push({ clave: "fondo", nombre: "Fondo", estado: "vacio", det: "Producto " + D + " cm" + (h.fondo ? " + " + h.fondo + " cm atrás" : ""), res: "Falta medir" });
+      else {
+        const det = "Hueco " + fmt(e.fondo) + " cm · producto " + D + " cm" + (h.fondo ? " + " + h.fondo + " cm atrás" : "");
+        if (e.fondo >= D + h.fondo) filas.push({ clave: "fondo", nombre: "Fondo", estado: "ok", det, res: "Cabe · sobran " + fmt(e.fondo - D - h.fondo) + " cm" });
+        else if (e.fondo >= D) filas.push({ clave: "fondo", nombre: "Fondo", estado: "justo", det, res: "Sin los " + h.fondo + " cm de ventilación atrás", corto: "sin ventilación atrás" });
+        else filas.push({ clave: "fondo", nombre: "Fondo", estado: "justo", det, res: "Sobresale " + fmt(D + h.fondo - e.fondo) + " cm del hueco", corto: "sobresale " + fmt(D + h.fondo - e.fondo) + " cm" });
+      }
+      const necesita = p.paso + 2;
+      if (e.puerta == null) filas.push({ clave: "puerta", nombre: "Puerta", estado: "vacio", det: "Necesita al menos " + necesita + " cm para pasar", res: "Falta medir" });
+      else {
+        const det = "Puerta " + fmt(e.puerta) + " cm · necesita " + necesita + " cm";
+        if (e.puerta >= necesita) filas.push({ clave: "puerta", nombre: "Puerta", estado: "ok", det, res: "Pasa por la puerta" });
+        else if (e.puerta >= p.paso) filas.push({ clave: "puerta", nombre: "Puerta", estado: "justo", det, res: "Pasa muy justo, sin espacio para las manos", corto: "pasa justo por la puerta" });
+        else filas.push({ clave: "puerta", nombre: "Puerta", estado: "no", det, res: "No pasa · faltan " + fmt(p.paso - e.puerta) + " cm", corto: "no pasa por la puerta" });
+      }
+    }
+    const medidas = filas.filter((f) => f.estado !== "vacio");
+    const peor = (lista) => (lista.some((f) => f.estado === "no") ? "no" : lista.some((f) => f.estado === "justo") ? "justo" : lista.length ? "ok" : "vacio");
+    const estado = peor(medidas);
+    const hueco = filas.filter((f) => f.clave !== "puerta" && f.estado !== "vacio");
+    const problemas = medidas.filter((f) => f.estado === estado && f.corto).map((f) => f.corto);
+    return { filas, estado, estadoHueco: peor(hueco), problemas };
+  }
+
+  const TITULO = { ok: "Cabe", justo: "Cabe muy justo", no: "No cabe" };
+  function frase(r) {
+    if (!r || r.estado === "vacio") return "";
+    if (r.estado === "ok") return actual.lugar === "wall" ? "Cabe en tu pared" : "Cabe en tu espacio";
+    return TITULO[r.estado] + " · " + r.problemas.join(", ");
+  }
+
+  // ---------------------------------------------------------------- tarjetas del catálogo
   const ESCALA = 26;
   PRODUCTOS.forEach((p) => {
     const b = document.createElement("button");
-    b.type = "button";
-    b.className = "producto";
-    b.id = "btn-" + p.id;
+    b.type = "button"; b.className = "producto"; b.id = "btn-" + p.id;
     b.setAttribute("aria-pressed", "false");
     const [w, h, d] = p.medidas;
     b.innerHTML =
       '<span class="silueta" aria-hidden="true"><i style="width:' + Math.max(3, w / 100 * ESCALA) + 'px;height:' + Math.max(3, h / 100 * ESCALA) + 'px"></i></span>' +
-      '<span class="etiqueta">' + p.cat + '</span>' +
-      '<strong>' + p.nombre + '</strong>' +
-      '<span class="dims"><span>' + w + ' × ' + h + ' × ' + d + ' cm</span><span>' + (p.lugar === "wall" ? "En pared" : "En piso") + '</span></span>';
+      '<span class="etiqueta">' + p.cat + '</span><strong>' + p.nombre + '</strong>' +
+      '<span class="dims"><span>' + w + ' × ' + h + ' × ' + d + ' cm</span><span>' + (p.lugar === "wall" ? "En pared" : "En piso") + '</span></span>' +
+      '<span class="encaja" data-estado="vacio" hidden></span>';
     b.addEventListener("click", () => { seleccionar(p.id); llevarAlVisor(); });
     rejilla.appendChild(b);
   });
+  function pintarCatalogo() {
+    PRODUCTOS.forEach((p) => {
+      const chip = document.querySelector("#btn-" + p.id + " .encaja");
+      const r = evaluar(p, espacio[grupo(p)]);
+      chip.hidden = r.estado === "vacio";
+      chip.dataset.estado = r.estado;
+      chip.textContent = r.estado === "vacio" ? "" : TITULO[r.estado] + (p.lugar === "wall" ? " en tu pared" : " en tu espacio");
+    });
+  }
 
   function llevarAlVisor() {
     const r = visor.getBoundingClientRect();
@@ -344,6 +541,7 @@
     }
   }
 
+  // ---------------------------------------------------------------- modelos
   // Si la página trae los modelos incrustados (vista previa), se convierten en URLs blob; si no, se usan los archivos.
   const blobs = {};
   function resolverSrc(src) {
@@ -358,12 +556,13 @@
     return blobs[src];
   }
 
-  // Banda inferior de AR Quick Look (iPhone): nombre y medidas, como el panel de abajo de Amazon.
+  // Banda inferior de AR Quick Look (iPhone): nombre, medidas y resultado de «¿Cabe?».
   function bandaQuickLook(p) {
     const [w, h, d] = p.medidas;
-    const sub = p.sinMedidas ? "Franjas de 10 cm · compárala con un flexómetro"
-      : p.lugar === "wall" ? "Ancho " + w + " · Alto " + h + " cm · baja el TV hasta que el aro toque el piso"
+    let sub = p.sinMedidas ? "Franjas de 10 cm · compárala con un flexómetro"
+      : p.lugar === "wall" ? "Ancho " + w + " · Alto " + h + " cm · el aro celeste va en el piso"
       : "Ancho " + w + " · Alto " + h + " · Fondo " + d + " cm";
+    if (!p.sinMedidas && resultado && resultado.estado !== "vacio") sub = frase(resultado) + " · " + sub;
     const e = encodeURIComponent;
     return "#checkoutTitle=" + e(p.nombre) + "&checkoutSubtitle=" + e(sub) + "&callToAction=" + e("Ver ficha");
   }
@@ -371,14 +570,373 @@
   function cargarModelo() {
     const p = actual;
     const variante = conMedidas && !p.sinMedidas ? p.archivo + "-medidas" : p.archivo;
+    const banda = bandaQuickLook(p);
     barra.classList.remove("lista");
-    visor.setAttribute("ios-src", "modelos/" + variante + ".usdz" + bandaQuickLook(p));
-    visor.setAttribute("src", resolverSrc("modelos/" + variante + ".glb"));
+    // Con marco de hueco en un producto de piso, el USDZ de iPhone lo genera model-viewer con todo lo que hay en la escena.
+    // El televisor usa siempre su USDZ propio, anclado a la pared.
+    if (marcoUrl && p.lugar !== "wall") visor.removeAttribute("ios-src");
+    else visor.setAttribute("ios-src", "modelos/" + variante + ".usdz" + banda);
+    const src = resolverSrc("modelos/" + variante + ".glb") + banda;
+    if (visor.getAttribute("src") !== src) visor.setAttribute("src", src);
   }
 
+  function ponerMarco(url) {
+    let extra = visor.querySelector("extra-model");
+    const anterior = marcoUrl;
+    marcoUrl = url;
+    if (!url) { if (extra) extra.remove(); }
+    else {
+      if (!extra) { extra = document.createElement("extra-model"); visor.appendChild(extra); }
+      extra.setAttribute("src", url);
+    }
+    if (anterior) setTimeout(() => URL.revokeObjectURL(anterior), 10000);
+  }
+
+  // ---------------------------------------------------------------- GLB del hueco, armado en el navegador
+  const lineal = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const COLORES = { ok: [22, 163, 74], justo: [245, 158, 11], no: [220, 38, 38], vacio: [100, 116, 139] };
+
+  function geoCaja(g, a, b) {
+    const [x0, y0, z0] = a, [x1, y1, z1] = b;
+    const caras = [
+      [[1, 0, 0], [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]]],
+      [[-1, 0, 0], [[x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [x0, y0, z0]]],
+      [[0, 1, 0], [[x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0]]],
+      [[0, -1, 0], [[x0, y0, z1], [x0, y0, z0], [x1, y0, z0], [x1, y0, z1]]],
+      [[0, 0, 1], [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]],
+      [[0, 0, -1], [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]]],
+    ];
+    for (const [n, vs] of caras) {
+      const base = g.p.length / 3;
+      for (const v of vs) { g.p.push(...v); g.n.push(...n); }
+      g.i.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+  }
+  // Rectángulo; cara "arriba" (+Y, texto legible desde el frente) o "frente" (+Z)
+  function geoRect(g, cx, cy, cz, w, h, cara) {
+    const base = g.p.length / 3;
+    const vs = cara === "arriba"
+      ? [[cx - w / 2, cy, cz + h / 2], [cx + w / 2, cy, cz + h / 2], [cx + w / 2, cy, cz - h / 2], [cx - w / 2, cy, cz - h / 2]]
+      : [[cx - w / 2, cy - h / 2, cz], [cx + w / 2, cy - h / 2, cz], [cx + w / 2, cy + h / 2, cz], [cx - w / 2, cy + h / 2, cz]];
+    const n = cara === "arriba" ? [0, 1, 0] : [0, 0, 1];
+    for (const v of vs) { g.p.push(...v); g.n.push(...n); }
+    if (g.uv) g.uv.push(0, 1, 1, 1, 1, 0, 0, 0);
+    g.i.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+
+  async function texturaEtiqueta(texto, rgb) {
+    const c = document.createElement("canvas");
+    const ctx = c.getContext("2d");
+    const alto = 128, fuente = "700 60px Archivo, 'Helvetica Neue', Arial, sans-serif";
+    ctx.font = fuente;
+    const ancho = Math.ceil(ctx.measureText(texto).width + 80);
+    c.width = ancho + ((4 - (ancho % 4)) % 4); c.height = alto;
+    ctx.font = fuente;
+    ctx.fillStyle = "rgb(" + rgb.join(",") + ")";
+    const r = alto / 2 - 2;
+    ctx.beginPath();
+    ctx.moveTo(r + 2, 2); ctx.lineTo(c.width - r - 2, 2); ctx.arc(c.width - r - 2, alto / 2, r, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(r + 2, alto - 2); ctx.arc(r + 2, alto / 2, r, Math.PI / 2, Math.PI * 1.5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#FFFFFF"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
+    ctx.fillText(texto, c.width / 2, alto / 2 + 2);
+    const blob = await new Promise((res) => c.toBlob(res, "image/png"));
+    return { bytes: new Uint8Array(await blob.arrayBuffer()), aspecto: c.width / c.height };
+  }
+
+  function escribirGLB(mallas, materiales, imagenes) {
+    const partes = [], vistas = [], accesores = [];
+    let largo = 0;
+    const alinear = () => { const pad = (4 - (largo % 4)) % 4; if (pad) { partes.push(new Uint8Array(pad)); largo += pad; } };
+    const agregar = (arr, target) => {
+      alinear();
+      const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+      partes.push(bytes);
+      const v = { buffer: 0, byteOffset: largo, byteLength: bytes.byteLength };
+      if (target) v.target = target;
+      vistas.push(v); largo += bytes.byteLength;
+      return vistas.length - 1;
+    };
+    const acc = (arr, tipo, comp, target, conLimites) => {
+      const n = tipo === "VEC3" ? 3 : tipo === "VEC2" ? 2 : 1;
+      const a = { bufferView: agregar(arr, target), componentType: comp, count: arr.length / n, type: tipo };
+      if (conLimites) {
+        a.min = [Infinity, Infinity, Infinity]; a.max = [-Infinity, -Infinity, -Infinity];
+        for (let i = 0; i < arr.length; i += 3) for (let k = 0; k < 3; k++) { a.min[k] = Math.min(a.min[k], arr[i + k]); a.max[k] = Math.max(a.max[k], arr[i + k]); }
+      }
+      accesores.push(a); return accesores.length - 1;
+    };
+    const meshes = [], nodes = [];
+    for (const m of mallas) {
+      const attrs = { POSITION: acc(new Float32Array(m.p), "VEC3", 5126, 34962, true), NORMAL: acc(new Float32Array(m.n), "VEC3", 5126, 34962) };
+      if (m.uv) attrs.TEXCOORD_0 = acc(new Float32Array(m.uv), "VEC2", 5126, 34962);
+      const indices = acc(new Uint16Array(m.i), "SCALAR", 5123, 34963);
+      meshes.push({ name: m.nombre, primitives: [{ attributes: attrs, indices, material: m.mat }] });
+      nodes.push({ name: m.nombre, mesh: meshes.length - 1 });
+    }
+    const json = { asset: { version: "2.0", generator: "probador-ar" }, scene: 0, scenes: [{ nodes: nodes.map((_, i) => i) }],
+      nodes, meshes, materials: materiales, accessors: accesores, bufferViews: vistas, buffers: [{ byteLength: 0 }] };
+    if (imagenes.length) {
+      json.images = imagenes.map((b) => ({ bufferView: agregar(b, null), mimeType: "image/png" }));
+      json.textures = imagenes.map((_, i) => ({ source: i, sampler: 0 }));
+      json.samplers = [{ magFilter: 9729, minFilter: 9987, wrapS: 33071, wrapT: 33071 }];
+    }
+    alinear();
+    json.buffers[0].byteLength = largo;
+    let txt = new TextEncoder().encode(JSON.stringify(json));
+    const padJ = (4 - (txt.length % 4)) % 4;
+    const jsonBytes = new Uint8Array(txt.length + padJ); jsonBytes.set(txt); jsonBytes.fill(0x20, txt.length);
+    const total = 12 + 8 + jsonBytes.length + 8 + largo;
+    const out = new Uint8Array(total), dv = new DataView(out.buffer);
+    dv.setUint32(0, 0x46546C67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true);
+    dv.setUint32(12, jsonBytes.length, true); dv.setUint32(16, 0x4E4F534A, true); out.set(jsonBytes, 20);
+    let o = 20 + jsonBytes.length;
+    dv.setUint32(o, largo, true); dv.setUint32(o + 4, 0x004E4942, true); o += 8;
+    for (const parte of partes) { out.set(parte, o); o += parte.length; }
+    return out;
+  }
+
+  // Marco del espacio del cliente, en la misma posición que el producto (metros).
+  async function construirMarco(p, e, r) {
+    const rgb = COLORES[r.estadoHueco] || COLORES.vacio;
+    const lin = rgb.map(lineal);
+    const t = 0.012;
+    const borde = { p: [], n: [], i: [] }, relleno = { p: [], n: [], i: [] }, etq = { p: [], n: [], i: [], uv: [] };
+    const [x0, x1, y0, y1, z0, z1] = p.limites;
+    const xm = (x0 + x1) / 2;
+    const nW = e.ancho / 100, nH = e.alto != null ? e.alto / 100 : null;
+    const xa = xm - nW / 2, xb = xm + nW / 2;
+    const dims = [e.ancho, e.alto, p.lugar === "wall" ? null : e.fondo].filter((v) => v != null).map(fmt).join(" × ");
+    const palabra = r.estadoHueco === "vacio" ? "Tu espacio" : TITULO[r.estadoHueco];
+    const tex = await texturaEtiqueta(palabra + " · " + dims + " cm", rgb);
+    let lh = 0.09;
+    if (p.lugar === "wall") {
+      const yc = (y0 + y1) / 2;
+      const ya = nH ? Math.max(0.005, yc - nH / 2) : yc - 0.5, yb = nH ? yc + nH / 2 : yc + 0.5;
+      for (const x of [xa, xb]) geoCaja(borde, [x - t / 2, ya, 0], [x + t / 2, yb, t]);
+      if (nH) {
+        for (const y of [ya, yb]) geoCaja(borde, [xa, y - t / 2, 0], [xb, y + t / 2, t]);
+        geoRect(relleno, xm, (ya + yb) / 2, 0.002, nW, yb - ya, "frente");
+      }
+      let lw = lh * tex.aspecto;
+      if (lw > Math.max(nW, 0.8)) { lw = Math.max(nW, 0.8); lh = lw / tex.aspecto; }
+      geoRect(etq, xm, yb + 0.05 + lh / 2, 0.006, lw, lh, "frente");
+    } else {
+      const hF = (p.holgura.fondo || 0) / 100;
+      const za = z0 - hF;
+      const zb = za + (e.fondo != null ? e.fondo / 100 : (z1 - z0) + hF);
+      for (const z of [za, zb]) geoCaja(borde, [xa, 0, z - t / 2], [xb, t, z + t / 2]);
+      for (const x of [xa, xb]) geoCaja(borde, [x - t / 2, 0, za], [x + t / 2, t, zb]);
+      const hp = nH || 0.25;
+      for (const x of [xa, xb]) for (const z of [za, zb]) geoCaja(borde, [x - t / 2, 0, z - t / 2], [x + t / 2, hp, z + t / 2]);
+      if (nH) {
+        for (const z of [za, zb]) geoCaja(borde, [xa, nH - t, z - t / 2], [xb, nH, z + t / 2]);
+        for (const x of [xa, xb]) geoCaja(borde, [x - t / 2, nH - t, za], [x + t / 2, nH, zb]);
+      }
+      geoRect(relleno, xm, 0.003, (za + zb) / 2, nW, zb - za, "arriba");
+      let lw = lh * tex.aspecto;
+      if (lw > Math.max(nW, 0.7)) { lw = Math.max(nW, 0.7); lh = lw / tex.aspecto; }
+      geoRect(etq, xm, 0.004, zb + 0.05 + lh / 2, lw, lh, "arriba");
+    }
+    const materiales = [
+      { name: "hueco_borde", pbrMetallicRoughness: { baseColorFactor: [...lin, 1], metallicFactor: 0, roughnessFactor: 1 }, emissiveFactor: lin.map((c) => c * 0.8) },
+      { name: "hueco_relleno", pbrMetallicRoughness: { baseColorFactor: [...lin, 0.22], metallicFactor: 0, roughnessFactor: 1 }, emissiveFactor: lin.map((c) => c * 0.4), alphaMode: "BLEND", doubleSided: true },
+      { name: "hueco_etiqueta", pbrMetallicRoughness: { baseColorTexture: { index: 0 }, metallicFactor: 0, roughnessFactor: 1 }, emissiveTexture: { index: 0 }, emissiveFactor: [1, 1, 1], alphaMode: "MASK", alphaCutoff: 0.5 },
+    ];
+    const mallas = [Object.assign(borde, { nombre: "hueco_borde", mat: 0 }), Object.assign(etq, { nombre: "hueco_etiqueta", mat: 2 })];
+    if (relleno.p.length) mallas.splice(1, 0, Object.assign(relleno, { nombre: "hueco_relleno", mat: 1 }));
+    const glb = escribirGLB(mallas, materiales, [tex.bytes]);
+    return URL.createObjectURL(new Blob([glb], { type: "model/gltf-binary" }));
+  }
+
+  // ---------------------------------------------------------------- planos a escala (SVG)
+  const NS = "http://www.w3.org/2000/svg";
+  function svgEl(padre, tag, attrs, texto) {
+    const el = document.createElementNS(NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    if (texto != null) el.textContent = texto;
+    padre.appendChild(el);
+    return el;
+  }
+  function filaDe(r, clave) { return r.filas.find((f) => f.clave === clave) || { estado: "vacio" }; }
+
+  function pintarPlanos(p, e, r) {
+    const fr = $("plano-frente"), ar = $("plano-arriba");
+    fr.replaceChildren(); ar.replaceChildren();
+    const [W, H, D] = p.medidas, h = p.holgura;
+    const VW = 300, VH = 220;
+    const estProd = r.estadoHueco === "vacio" ? "" : r.estadoHueco;
+    const eAncho = filaDe(r, "ancho").estado;
+
+    if (p.lugar === "wall") {
+      $("fig-arriba").hidden = true; $("planos").classList.add("uno");
+      const spanW = Math.max(e.ancho || 0, W + h.ancho) * 1.15, spanH = Math.max(e.alto || 0, H + h.alto) * 1.25;
+      const s = Math.min((VW - 30) / spanW, (VH - 40) / spanH);
+      const X = (x) => VW / 2 + x * s, Y = (y) => VH / 2 - 8 - y * s;
+      if (e.ancho) {
+        const ah = (e.alto || H + h.alto + 30) / 2;
+        svgEl(fr, "rect", { class: "zona " + (r.estadoHueco || "vacio"), x: X(-e.ancho / 2), y: Y(ah), width: e.ancho * s, height: 2 * ah * s, rx: 2 });
+      }
+      svgEl(fr, "rect", { class: "holgura", x: X(-(W + h.ancho) / 2), y: Y((H + h.alto) / 2), width: (W + h.ancho) * s, height: (H + h.alto) * s });
+      svgEl(fr, "rect", { class: "prod " + estProd, x: X(-W / 2), y: Y(H / 2), width: W * s, height: H * s });
+      svgEl(fr, "text", { class: "fuerte", x: VW / 2, y: Y(0) + 4, "text-anchor": "middle" }, W + " × " + H + " cm");
+      if (e.ancho) svgEl(fr, "text", { class: eAncho, x: VW / 2, y: VH - 10, "text-anchor": "middle" }, "Pared libre " + fmt(e.ancho) + (e.alto ? " × " + fmt(e.alto) : "") + " cm");
+      return;
+    }
+    $("fig-arriba").hidden = false; $("planos").classList.remove("uno");
+
+    // De frente: muebles a los lados (gris), producto centrado, holgura punteada
+    const lado = Math.max(W, e.ancho || 0) * 0.16 + 8;
+    const spanW = Math.max(e.ancho || 0, W + h.ancho) + 2 * lado;
+    const altoMuro = e.alto || (H + h.alto + 20);
+    const spanH = Math.max(e.alto ? e.alto + 14 : 0, H + h.alto, altoMuro) + 6;
+    const s = Math.min((VW - 20) / spanW, (VH - 44) / spanH);
+    const piso = VH - 30;
+    const X = (x) => VW / 2 + x * s, Y = (y) => piso - y * s;
+    if (e.ancho) {
+      svgEl(fr, "rect", { class: "muro", x: X(-e.ancho / 2 - lado), y: Y(altoMuro), width: lado * s, height: altoMuro * s });
+      svgEl(fr, "rect", { class: "muro", x: X(e.ancho / 2), y: Y(altoMuro), width: lado * s, height: altoMuro * s });
+      if (e.alto) svgEl(fr, "rect", { class: "muro", x: X(-e.ancho / 2 - lado), y: Y(e.alto + 14), width: (e.ancho + 2 * lado) * s, height: 14 * s });
+    }
+    svgEl(fr, "line", { class: "piso", x1: 6, x2: VW - 6, y1: piso, y2: piso });
+    svgEl(fr, "rect", { class: "holgura", x: X(-(W + h.ancho) / 2), y: Y(H + h.alto), width: (W + h.ancho) * s, height: (H + h.alto) * s });
+    svgEl(fr, "rect", { class: "prod " + estProd, x: X(-W / 2), y: Y(H), width: W * s, height: H * s });
+    svgEl(fr, "text", { class: "fuerte", x: VW / 2, y: Y(H / 2) + 4, "text-anchor": "middle" }, W + " cm");
+    if (e.ancho) {
+      const yc = piso + 12;
+      svgEl(fr, "line", { class: "cota", x1: X(-e.ancho / 2), x2: X(e.ancho / 2), y1: yc - 4, y2: yc - 4 });
+      svgEl(fr, "text", { class: eAncho, x: VW / 2, y: yc + 9, "text-anchor": "middle" }, "Hueco " + fmt(e.ancho) + " cm");
+    }
+
+    // Desde arriba: pared al fondo, muebles a los lados, producto con su holgura atrás
+    const hF = h.fondo || 0;
+    const fondoHueco = e.fondo || (D + hF);
+    const spanD = Math.max(fondoHueco, D + hF) + 16;
+    const s2 = Math.min((VW - 20) / spanW, (VH - 44) / spanD);
+    const top = 14;
+    const X2 = (x) => VW / 2 + x * s2, Z = (z) => top + 6 + z * s2;
+    svgEl(ar, "rect", { class: "muro", x: 6, y: top, width: VW - 12, height: 6 });
+    if (e.ancho) {
+      svgEl(ar, "rect", { class: "muro", x: X2(-e.ancho / 2 - lado), y: Z(0), width: lado * s2, height: fondoHueco * s2 });
+      svgEl(ar, "rect", { class: "muro", x: X2(e.ancho / 2), y: Z(0), width: lado * s2, height: fondoHueco * s2 });
+    }
+    svgEl(ar, "rect", { class: "holgura", x: X2(-(W + h.ancho) / 2), y: Z(0), width: (W + h.ancho) * s2, height: (D + hF) * s2 });
+    svgEl(ar, "rect", { class: "prod " + estProd, x: X2(-W / 2), y: Z(hF), width: W * s2, height: D * s2 });
+    svgEl(ar, "text", { class: "fuerte", x: VW / 2, y: Z(hF + D / 2) + 4, "text-anchor": "middle" }, D + " cm");
+    if (e.fondo) {
+      const eF = filaDe(r, "fondo").estado;
+      svgEl(ar, "line", { class: "zona " + eF, x1: X2(-e.ancho / 2 - lado), x2: X2((e.ancho || 0) / 2 + lado), y1: Z(e.fondo), y2: Z(e.fondo) });
+      svgEl(ar, "text", { class: eF, x: VW / 2, y: VH - 10, "text-anchor": "middle" }, "Fondo del hueco " + fmt(e.fondo) + " cm");
+    }
+  }
+
+  // ---------------------------------------------------------------- formulario
+  const CAMPOS = ["ancho", "alto", "fondo", "puerta"];
+  function leerCampo(k) {
+    const inp = $("e-" + k), err = $("err-" + k), caja = $("c-" + k);
+    const crudo = (inp.value || "").trim().replace(",", ".");
+    let v = null, msg = "";
+    if (inp.validity && inp.validity.badInput) msg = "Escribe solo números";
+    else if (crudo !== "") {
+      v = parseFloat(crudo);
+      if (!isFinite(v)) { v = null; msg = "Escribe solo números"; }
+      else if (v < 10 || v > 600) { v = null; msg = "Escribe una medida entre 10 y 600 cm"; }
+    }
+    err.textContent = msg; err.hidden = !msg; caja.classList.toggle("con-error", !!msg);
+    return v;
+  }
+
+  function prepararFormulario(p) {
+    const pared = p.lugar === "wall";
+    $("cabe").hidden = !!p.sinMedidas;
+    $("c-fondo").hidden = pared; $("c-puerta").hidden = pared;
+    $("l-ancho").textContent = pared ? "Ancho libre en la pared" : "Ancho del hueco";
+    $("l-alto").textContent = pared ? "Alto libre en la pared" : "Alto libre";
+    $("cabe-ayuda").textContent = pared
+      ? "Mide con un flexómetro la parte libre de la pared donde irá, por ejemplo entre la ventana y la esquina."
+      : "Mide con un flexómetro el ancho de pared a pared (o de mueble a mueble), el alto hasta el mueble de arriba (déjalo vacío si no hay nada) y el fondo. Mide también la puerta más angosta por la que tiene que pasar.";
+    $("nota-holgura").textContent = p.textoHolgura || "";
+    const valores = espacio[grupo(p)] || {};
+    CAMPOS.forEach((k) => { $("e-" + k).value = valores[k] != null ? String(valores[k]) : ""; $("err-" + k).hidden = true; $("c-" + k).classList.remove("con-error"); });
+  }
+
+  function pintarResultado(p, e, r) {
+    const ver = $("veredicto");
+    ver.dataset.estado = r.estado;
+    if (r.estado === "vacio") {
+      $("v-titulo").textContent = "Escribe al menos el ancho";
+      $("v-resumen").textContent = "Con tus medidas te decimos si cabe y cuántos centímetros faltan o sobran.";
+    } else {
+      $("v-titulo").textContent = TITULO[r.estado];
+      $("v-resumen").textContent = r.estado === "ok"
+        ? "Cabe con la holgura recomendada." + (r.filas.some((f) => f.estado === "vacio") ? " Mide también lo que falta para estar seguro." : "")
+        : r.estado === "no" ? "No lo compres para este espacio: " + r.problemas.join(", ") + "."
+        : "Cabe, pero " + r.problemas.join(", ") + ".";
+    }
+    const ul = $("filas");
+    ul.replaceChildren();
+    r.filas.forEach((f) => {
+      const li = document.createElement("li");
+      li.dataset.estado = f.estado;
+      li.innerHTML = "<b></b><span class='det'></span><span class='res'></span>";
+      li.children[0].textContent = f.nombre; li.children[1].textContent = f.det; li.children[2].textContent = f.res;
+      ul.appendChild(li);
+    });
+    sello.hidden = r.estado === "vacio" || !!p.sinMedidas;
+    sello.dataset.estado = r.estado;
+    sello.textContent = frase(r);
+    pintarPlanos(p, e, r);
+    $("nota-marco").textContent = e.ancho != null
+      ? (p.lugar === "wall"
+        ? "En el visor y en la cámara de Android verás un marco de color con el tamaño de tu pared libre. En iPhone, el resultado aparece en la banda de abajo de la cámara."
+        : "En el visor y en la cámara verás un marco de color con el tamaño de tu hueco. Alinéalo con tu hueco real: si no coincide, vuelve a medir.")
+      : "";
+    guiaAr.querySelector(".corto").textContent = p.lugar === "wall"
+      ? "Mueve el TV hasta que el aro toque el piso"
+      : (e.ancho != null ? "Alinea el marco de color con tu hueco" : "");
+    guiaAr.classList.toggle("siempre", p.lugar === "wall" || e.ancho != null);
+  }
+
+  let espera = null;
+  function alCambiar() {
+    clearTimeout(espera);
+    const p = actual;
+    if (p.sinMedidas) return;
+    const e = {};
+    CAMPOS.forEach((k) => { const v = leerCampo(k); if (v != null) e[k] = v; });
+    if (p.lugar === "wall") { delete e.fondo; delete e.puerta; }
+    espacio[grupo(p)] = e;
+    guardarEspacio();
+    const vals = { ancho: e.ancho ?? null, alto: e.alto ?? null, fondo: e.fondo ?? null, puerta: e.puerta ?? null };
+    resultado = evaluar(p, vals);
+    pintarResultado(p, vals, resultado);
+    pintarCatalogo();
+    espera = setTimeout(() => actualizarMarco(p, vals, resultado), 450);
+  }
+
+  async function actualizarMarco(p, e, r) {
+    const gen = ++generacion;
+    let url = null;
+    if (e.ancho != null && !p.sinMedidas) {
+      try { url = await construirMarco(p, e, r); } catch (err) { console.warn("No se pudo armar el marco", err); }
+    }
+    if (gen !== generacion || p !== actual) { if (url) URL.revokeObjectURL(url); return; }
+    ponerMarco(url);
+    cargarModelo();
+  }
+
+  CAMPOS.forEach((k) => $("e-" + k).addEventListener("input", alCambiar));
+  $("btn-borrar").addEventListener("click", () => {
+    CAMPOS.forEach((k) => ($("e-" + k).value = ""));
+    alCambiar();
+    $("e-ancho").focus();
+  });
+
+  // ---------------------------------------------------------------- selección de producto
   function seleccionar(id) {
     const p = TODOS.find((x) => x.id === id) || PRODUCTOS[0];
     actual = p;
+    generacion++;
+    clearTimeout(espera);
     document.querySelectorAll(".producto").forEach((b) => b.setAttribute("aria-pressed", String(b.id === "btn-" + p.id)));
     btnPrueba.setAttribute("aria-pressed", String(p.id === REGLA.id));
     $("f-cat").textContent = p.cat;
@@ -386,24 +944,33 @@
     $("f-nota").textContent = p.nota;
     $("f-lugar").textContent = p.lugar === "wall" ? "Se coloca en la pared" : "Se coloca en el piso";
     const inst = $("f-instalacion");
-    inst.textContent = p.instalacion || "";
-    inst.hidden = !p.instalacion;
+    inst.textContent = p.instalacion || ""; inst.hidden = !p.instalacion;
     const [w, h, d] = p.medidas;
-    $("d-x").textContent = w;
-    $("d-y").textContent = h;
-    $("d-z").textContent = d;
+    $("d-x").textContent = w; $("d-y").textContent = h; $("d-z").textContent = d;
     $("medida-texto").textContent = w + " × " + h + " × " + d + " cm";
     btnRegla.hidden = !!p.sinMedidas;
     guiaAr.querySelector(".largo").textContent = p.lugar === "wall"
       ? "Apunta a la pared donde irá. Luego sube o baja el televisor hasta que el aro celeste quede apoyado en el piso."
       : "Apunta al piso y mueve el celular despacio. Mientras flote no está apoyado: espera a que baje y aparezca su sombra.";
-    guiaAr.querySelector(".corto").textContent = p.lugar === "wall" ? "Mueve el TV hasta que el aro toque el piso" : "";
-    guiaAr.classList.toggle("siempre", p.lugar === "wall");
     toast.hidden = true;
     visor.setAttribute("ar-placement", p.lugar);
     visor.setAttribute("camera-orbit", p.orbita);
     visor.setAttribute("alt", p.alt);
-    cargarModelo();
+    ponerMarco(null);
+    resultado = null;
+    if (p.sinMedidas) {
+      $("cabe").hidden = true; sello.hidden = true;
+      guiaAr.classList.remove("siempre");
+      cargarModelo();
+    } else {
+      prepararFormulario(p);
+      const g = espacio[grupo(p)] || {};
+      const vals = { ancho: g.ancho ?? null, alto: g.alto ?? null, fondo: g.fondo ?? null, puerta: g.puerta ?? null };
+      resultado = evaluar(p, vals);
+      pintarResultado(p, vals, resultado);
+      cargarModelo();
+      if (vals.ancho != null) actualizarMarco(p, vals, resultado);
+    }
     try { history.replaceState(null, "", "#" + p.id); } catch (e) {}
     if (aviso.dataset.modo === "qr") pintarAviso();
   }
@@ -413,7 +980,6 @@
     btnRegla.setAttribute("aria-pressed", String(conMedidas));
     cargarModelo();
   });
-
   btnPrueba.addEventListener("click", () => {
     seleccionar(actual.id === REGLA.id ? PRODUCTOS[0].id : REGLA.id);
     llevarAlVisor();
@@ -424,34 +990,41 @@
     barra.firstElementChild.style.width = (t * 100).toFixed(0) + "%";
     if (t >= 1) barra.classList.add("lista");
   });
-
-  visor.addEventListener("load", () => pintarAviso());
-
+  // Si no cabe, el producto se vuelve translúcido para ver a través de él el marco y el hueco real (también en el USDZ de iPhone).
+  function aplicarFantasma() {
+    const m = visor.model;
+    if (!m) return;
+    const fantasma = !!marcoUrl && !!resultado && resultado.estadoHueco === "no";
+    for (const mat of m.materials) {
+      if (mat.isLoaded === false) continue;            // variantes de material que no se están usando
+      if (mat.name && mat.name.startsWith("medida_")) continue;
+      if (!fantasma && !mat.__original) continue;
+      const pbr = mat.pbrMetallicRoughness;
+      const f = pbr.baseColorFactor;
+      if (!mat.__original) mat.__original = { modo: mat.getAlphaMode(), alfa: f[3] };
+      if (fantasma) { mat.setAlphaMode("BLEND"); pbr.setBaseColorFactor([f[0], f[1], f[2], 0.42]); }
+      else { mat.setAlphaMode(mat.__original.modo); pbr.setBaseColorFactor([f[0], f[1], f[2], mat.__original.alfa]); }
+    }
+  }
+  visor.addEventListener("load", () => { aplicarFantasma(); pintarAviso(); });
   visor.addEventListener("error", () => {
     toast.textContent = "No se pudo cargar el modelo 3D. Revisa tu conexión y vuelve a elegir el producto.";
     toast.hidden = false;
   });
-
   visor.addEventListener("ar-status", (e) => {
     if (e.detail.status === "failed") {
       toast.textContent = "No se pudo abrir la cámara AR. Revisa que el navegador tenga permiso de cámara y que la página se abra con HTTPS.";
       toast.hidden = false;
-    } else {
-      toast.hidden = true;
-    }
+    } else toast.hidden = true;
   });
-
-  // Botón de la banda de Quick Look en iPhone
-  visor.addEventListener("quick-look-button-tapped", () => {
-    $("ficha").scrollIntoView({ behavior: "auto", block: "start" });
-  });
+  visor.addEventListener("quick-look-button-tapped", () => $("ficha").scrollIntoView({ behavior: "auto", block: "start" }));
 
   function pintarAviso() {
     const puedeAR = !!visor.canActivateAR;
     aviso.className = "aviso";
     aviso.dataset.modo = "";
     if (enMarco) {
-      aviso.innerHTML = "<h3>Vista previa</h3><p>Aquí puedes girar los modelos, activar las medidas y ver la guía del televisor. La cámara AR se abre cuando la página está publicada en su propio dominio con HTTPS, por ejemplo en GitHub Pages.</p>";
+      aviso.innerHTML = "<h3>Vista previa</h3><p>Aquí puedes probar «¿Cabe?», girar los modelos y ver el marco de tu hueco. La cámara AR se abre cuando la página está publicada en su propio dominio con HTTPS, por ejemplo en GitHub Pages.</p>";
     } else if (puedeAR) {
       aviso.classList.add("ok");
       aviso.innerHTML = "<h3>AR disponible en este dispositivo</h3><p>Usa el botón «Ver en mi espacio» del visor.</p>";
@@ -470,6 +1043,7 @@
     }
   }
 
+  pintarCatalogo();
   const inicial = location.hash.replace("#", "");
   seleccionar(TODOS.some((p) => p.id === inicial) ? inicial : "refrigeradora");
 </script>
